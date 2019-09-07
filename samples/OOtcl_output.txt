@@ -1,0 +1,802 @@
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    START
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    2.2. CREATING A CLASS
+    
+  % oo::class create Account
+    ==> ::Account
+    
+  % Account destroy
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CHECK BANK NAMESPACE, THEN CREATING IT WITH 'OO:CLASS CREATE'
+    
+  % namespace exist bank
+    ==> 0
+    
+  % oo::class create bank::Account
+    ==> ::bank::Account
+    
+  % bank::Account destroy
+    
+  % namespace exist bank
+    ==> 1
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CREATING BANK NAMESPACE AND ACCOUNT CLASS IN IT
+    
+  % namespace eval bank {oo::class create Account}
+    ==> ::bank::Account
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    2.3. DESTROYING CLASSES
+    
+  % bank::Account destroy
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    2.4. DEFINING DATA MEMBERS
+    
+  % oo::class create Account
+    ==> ::Account
+    
+  % oo::define Account {
+        variable AccountNumber Balance
+    }
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    2.5. DEFINING METHODS
+    
+  % oo::define Account {
+        method UpdateBalance {change} {
+            set Balance [+ $Balance $change]
+            return $Balance
+        }
+        method balance {} { return $Balance }
+        method withdraw {amount} {
+            return [my UpdateBalance -$amount]
+        }
+        method deposit {amount} {
+            return [my UpdateBalance $amount]
+        }
+    }
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    THE FOLLOWING CODE WILL CRASH TCL VERSIONS PRIOR TO 8.6.2
+    DUE TO A BUG IN THE TCL CORE
+    
+  % oo::class create C {method print args {puts "class: $args"}}
+    ==> ::C
+    
+  % C create c
+    ==> ::c
+    
+    OK: THE OBJECT CALLS THE CLASS PRINT METHOD
+    
+  % c print some nonsense
+class: some nonsense
+    
+  % oo::define C {deletemethod print}
+    
+    NOT OK: PRINT METHOD WAS DELETED, IT'S UNKNOWN FOR 'C' OBJECT
+    
+  % c print more of the same
+    ==> ERROR: unknown method 'print': must be destroy
+    
+    OK: REDEFINE PRINT METHOD IN OBJECT
+    
+  % oo::objdefine c {method print args {puts "object: $args"}}
+    
+  % c print more of the same
+object: more of the same
+    
+    DELETE PRINT METHOD IN OBJECT
+    
+  % oo::objdefine c {deletemethod print}
+    
+    NOT OK: THERE IS NO PRINT METHOD IN OBJECT
+    
+  % c print more of the same
+    ==> ERROR: unknown method 'print': must be destroy
+    
+    NOT OK: THERE IS NO OBJECT AFTER DESTROYING CLASS
+    
+  % C destroy
+    
+  % c print some nonsense
+    ==> ERROR: invalid command name 'c'
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    2.6. CONSTRUCTORS AND DESTRUCTORS
+    
+  % oo::define Account {
+        constructor {account_no} {
+            puts "Reading account data for $account_no from database"
+            set AccountNumber $account_no
+            set Balance 1000000
+        }
+        destructor {
+            puts "[self] saving account data to database"
+        }
+    }
+    
+    NOW ACCOUNT CLASS WAS OO::DEFINED WITH CONSTRUCTOR & DESTRUCTOR
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    3.1. CREATING AN OBJECT
+    
+    - 1ST WAY:
+    
+  % set acct [Account new 3-14159265]
+Reading account data for 3-14159265 from database
+    ==> ::oo::Obj17
+    
+    - 2ND WAY:
+    
+  % Account create smith_account 2-71828182
+Reading account data for 2-71828182 from database
+    ==> ::smith_account
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    THE CREATED OBJECTS ARE TCL COMMANDS
+    AND AS SUCH CAN BE CREATED IN ANY NAMESPACE
+    
+  % namespace eval my_ns {Account create my_account 1-11111111}
+Reading account data for 1-11111111 from database
+    ==> ::my_ns::my_account
+    
+  % Account create my_ns::another_account 2-22222222
+Reading account data for 2-22222222 from database
+    ==> ::my_ns::another_account
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    3.2. DESTROYING OBJECTS
+    (AND NAMESPACES)
+    
+  % my_ns::my_account destroy
+::my_ns::my_account saving account data to database
+    
+  % my_ns::my_account balance
+    ==> ERROR: invalid command name 'my_ns::my_account'
+    
+  % namespace delete my_ns
+::my_ns::another_account saving account data to database
+    
+  % my_ns::another_account balance
+    ==> ERROR: invalid command name 'my_ns::another_account'
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    3.3. INVOKING METHODS
+    
+  % $acct balance
+    ==> 1000000
+    
+  % $acct deposit 1000
+    ==> 1001000
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    3.4. ACCESSING DATA MEMBERS
+    
+  % set [info object namespace $acct]::Balance 5000
+    ==> 5000
+    
+  % $acct balance
+    ==> 5000
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    4. INHERITANCE
+    
+  % oo::class create SavingsAccount {
+        superclass Account
+        variable MaxPerMonthWithdrawals WithdrawalsThisMonth
+        constructor {account_no {max_withdrawals_per_month 3}} {
+            next $account_no
+            set MaxPerMonthWithdrawals $max_withdrawals_per_month
+        }
+        method monthly_update {} {
+            my variable Balance
+            my deposit [format %.2f [* $Balance 0.005]]
+            set WithdrawalsThisMonth 0
+        }
+        method withdraw {amount} {
+            if {[incr WithdrawalsThisMonth] > $MaxPerMonthWithdrawals} {
+                error "You are only allowed $MaxPerMonthWithdrawals withdrawals a month"
+            }
+            next $amount
+        }
+    }
+    ==> ::SavingsAccount
+    
+  % oo::class create CheckingAccount {
+        superclass Account
+        method cash_check {payee amount} {
+            my withdraw $amount
+            puts "Writing a check to $payee for $amount"
+        }
+    }
+    ==> ::CheckingAccount
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    4.2. DATA MEMBERS IN DERIVED CLASSES
+    
+  % SavingsAccount create savings S-12345678 2
+Reading account data for S-12345678 from database
+    ==> ::savings
+    
+  % CheckingAccount create checking C-12345678
+Reading account data for C-12345678 from database
+    ==> ::checking
+    
+  % savings withdraw 1000
+    ==> 999000
+    
+  % savings withdraw 1000
+    ==> 998000
+    
+  % savings withdraw 1000
+    ==> ERROR: You are only allowed 2 withdrawals a month
+    
+  % savings monthly_update
+    ==> 0
+    
+  % checking cash_check Payee 500
+Writing a check to Payee for 500
+    
+  % savings cash_check Payee 500
+    ==> ERROR: unknown method 'cash_check': must be balance, deposit, destroy, monthly_update or withdraw
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    4.3. MULTIPLE INHERITANCE
+    BUY HIGH, SELL LOW.
+    HISTORICALLY, THE AUTHOR'S TRADING STRATEGY :)
+    
+  % oo::class create BrokerageAccount {
+        superclass Account
+        method buy {ticker number_of_shares} {
+            puts "Buy high"
+        }
+        method sell {ticker number_of_shares} {
+            puts "Sell low"
+        }
+    }
+    ==> ::BrokerageAccount
+    
+  % oo::class create CashManagementAccount {
+        superclass CheckingAccount BrokerageAccount
+    }
+    ==> ::CashManagementAccount
+    
+  % CashManagementAccount create cma CMA-00000001
+Reading account data for CMA-00000001 from database
+    ==> ::cma
+    
+  % cma cash_check Payee 500
+Writing a check to Payee for 500
+    
+  % cma buy GOOG 100
+Buy high
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    5.1. OBJECT-SPECIFIC METHODS
+    
+  % proc freeze {account_obj} {
+        oo::objdefine $account_obj {
+            method UpdateBalance {args} {
+                error "Account is frozen. Don't mess with the IRS, dude!"
+            }
+            method unfreeze {} {
+                oo::objdefine [self] { deletemethod UpdateBalance unfreeze }
+            }
+        }
+    }
+    
+  % proc unfreeze {account_obj} {
+        oo::objdefine $account_obj {deletemethod UpdateBalance}
+    }
+    
+  % smith_account withdraw 100
+    ==> 999900
+    
+  % freeze smith_account
+    
+  % smith_account withdraw [smith_account balance]
+    ==> ERROR: Account is frozen. Don't mess with the IRS, dude!
+    
+  % $acct withdraw 100
+    ==> 4900
+    
+  % smith_account unfreeze
+    
+  % smith_account withdraw 100
+    ==> 999800
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    5.2. CHANGING AN OBJECT'S CLASS
+    
+  % set acct [SavingsAccount new C-12345678]
+Reading account data for C-12345678 from database
+    ==> ::oo::Obj28
+    
+  % $acct monthly_update
+    ==> 0
+    
+  % $acct cash_check Payee 100
+    ==> ERROR: unknown method 'cash_check': must be balance, deposit, destroy, monthly_update or withdraw
+    
+  % oo::objdefine $acct class CheckingAccount
+    
+  % $acct cash_check Payee 100
+Writing a check to Payee for 100
+    
+  % $acct monthly_update
+    ==> ERROR: unknown method 'monthly_update': must be balance, cash_check, deposit, destroy or withdraw
+    
+  % $acct destroy
+::oo::Obj28 saving account data to database
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    6. USING MIXINS
+    
+  % oo::class create EFT {
+        method transfer_in {from_account amount} {
+            puts "Pretending $amount received from $from_account"
+            my deposit $amount
+        }
+        method transfer_out {to_account amount} {
+            my withdraw $amount
+            puts "Pretending $amount sent to $to_account"
+        }
+    }
+    ==> ::EFT
+    
+  % oo::define CheckingAccount {mixin EFT}
+    
+  % checking transfer_out 0-12345678 100
+Pretending 100 sent to 0-12345678
+    
+  % checking balance
+    ==> 999400
+    
+  % oo::objdefine savings {mixin EFT}
+    
+  % savings transfer_in 0-12345678 100
+Pretending 100 received from 0-12345678
+    ==> 1003090.0
+    
+  % savings balance
+    ==> 1003090.0
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    6.1. USING MULTIPLE MIXINS
+    
+  % oo::class create BillPay {}  ; # empty class for demo only
+    ==> ::BillPay
+    
+  % oo::define CheckingAccount {mixin BillPay EFT}
+    
+  % oo::define CheckingAccount {
+        mixin EFT
+        mixin -append BillPay
+    }
+    
+    NOTE THE USE OF -APPEND ABOVE.
+    BY DEFAULT, THE MIXIN COMMAND OVERWRITES EXISTING MIXIN
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    7. FILTER METHODS
+    
+  % oo::objdefine smith_account {
+        method Log args {
+            my variable AccountNumber
+            puts "Log([info level]): $AccountNumber [self target]: $args"
+            return [next {*}$args]
+        }
+        filter Log
+    }
+    
+  % smith_account deposit 100
+Log(1): 2-71828182 ::Account deposit: 100
+Log(2): 2-71828182 ::Account UpdateBalance: 100
+    ==> 999900
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    7.1. DEFINING A FILTER CLASS
+    
+  % oo::objdefine smith_account {
+        filter -clear
+        deletemethod Log
+    }
+    
+    NOTE -CLEAR OPTION TO CLEAR ANY CURRENTLY DEFINED FILTERS
+    
+  % oo::class create Logger {
+        method Log args {
+            my variable AccountNumber
+            puts "Log([info level]): $AccountNumber [self target]: $args"
+            return [next {*}$args]
+        }
+    }
+    ==> ::Logger
+    
+  % oo::objdefine smith_account {
+        mixin Logger
+        filter Log
+    }
+    
+  % smith_account withdraw 500
+Log(1): 2-71828182 ::Account withdraw: 500
+Log(2): 2-71828182 ::Account UpdateBalance: -500
+    ==> 999400
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    8.1. METHOD CHAIN ORDER
+    
+  % oo::class create ClassMixin { method m {} {} }
+    ==> ::ClassMixin
+    
+  % oo::class create ObjectMixin { method m {} {} }
+    ==> ::ObjectMixin
+    
+  % oo::class create Base {
+        mixin ClassMixin
+        method m {} {}
+        method classfilter {} {}
+        filter classfilter
+        method unknown args {}
+    }
+    ==> ::Base
+    
+  % oo::class create SecondBase { method m {} {} }
+    ==> ::SecondBase
+    
+  % oo::class create Derived {
+        superclass Base SecondBase
+        method m {} {}
+    }
+    ==> ::Derived
+    
+  % Derived create o
+    ==> ::o
+    
+  % oo::objdefine o {
+        mixin ObjectMixin
+        method m {} {}
+        method objectfilter {} {}
+        filter objectfilter
+    }
+    
+    INTROSPECTION VIA THE INFO OBJECT CALL COMMAND:
+    
+  % print_list [info object call o m]
+    ==> filter objectfilter object method
+    ==> filter classfilter ::Base method
+    ==> method m ::ObjectMixin method
+    ==> method m ::ClassMixin method
+    ==> method m object method
+    ==> method m ::Derived method
+    ==> method m ::Base method
+    ==> method m ::SecondBase method
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    8.2. METHOD CHAIN FOR UNKNOWN METHODS
+    
+  % print_list [info object call o nosuchmethod]
+    ==> filter objectfilter object method
+    ==> filter classfilter ::Base method
+    ==> unknown unknown ::Base method
+    ==> unknown unknown ::oo::object {core method: "unknown"}
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    8.3. RETRIEVING THE METHOD CHAIN FOR A CLASS
+    
+  % print_list [info class call Derived m]
+    ==> filter classfilter ::Base method
+    ==> method m ::ClassMixin method
+    ==> method m ::Derived method
+    ==> method m ::Base method
+    ==> method m ::SecondBase method
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    8.4. INSPECTING METHOD CHAINS WITHIN METHOD CONTEXTS
+    
+  % catch {Base destroy} 1
+    ==> 0
+    
+  % oo::class create Base {
+        constructor {} {puts [self call]}
+        method m {} {puts [self call]}
+    }
+    ==> ::Base
+    
+  % oo::class create Derived {
+        superclass Base
+        constructor {} {puts [self call]; next}
+        method m {} {
+            puts [self call]; next
+        }
+    }
+    ==> ::Derived
+    
+  % Derived create o
+{{method <constructor> ::Derived method} {method <constructor> ::Base method}} 0
+{{method <constructor> ::Derived method} {method <constructor> ::Base method}} 1
+    ==> ::o
+    
+  % o m
+{{method m ::Derived method} {method m ::Base method}} 0
+{{method m ::Derived method} {method m ::Base method}} 1
+    
+    NOTE THE SPECIAL FORM <CONSTRUCTOR> FOR CONSTRUCTORS.
+    DESTRUCTORS SIMILARLY HAVE THE FORM <DESTRUCTOR>.
+    
+    CONSTRUCTOR AND DESTRUCTOR METHOD CHAINS ARE ONLY AVAILABLE
+    THROUGH SELF CALL, NOT THROUGH INFO CLASS CALL.
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    8.5. LOOKING UP THE NEXT METHOD IN A CHAIN
+    
+  % oo::define Derived {
+        method m {} { puts "Next method in chain is [self next]" }
+    }
+    
+  % o m
+Next method in chain is ::Base m
+    
+  % oo::class create GeneralPurposeMixin {
+        constructor args {
+            puts "Initializing GeneralPurposeMixin";
+            next {*}$args
+        }
+    }
+    ==> ::GeneralPurposeMixin
+    
+  % oo::class create MixerA {
+        mixin GeneralPurposeMixin
+        constructor {} {puts "Initializing MixerA"}
+    }
+    ==> ::MixerA
+    
+  % MixerA create mixa
+Initializing GeneralPurposeMixin
+Initializing MixerA
+    ==> ::mixa
+    
+    SO FAR SO GOOD.
+    NOW LET US DEFINE ANOTHER CLASS THAT ALSO USES THE MIXIN.
+    
+  % oo::class create MixerB {mixin GeneralPurposeMixin}
+    ==> ::MixerB
+    
+  % MixerB create mixb
+Initializing GeneralPurposeMixin
+    ==> ERROR: no next constructor implementation
+    
+    THIS IS WHERE SELF NEXT CAN HELP.
+    LET US REDEFINE THE CONSTRUCTOR FOR GENERALPURPOSEMIXIN
+    
+  % oo::define GeneralPurposeMixin {
+        constructor args {
+            puts "Initialize GeneralPurposeMixin";
+            if {[llength [self next]]} {
+                next {*}$args
+            }
+        }
+    }
+    
+  % MixerB create mixb
+Initialize GeneralPurposeMixin
+    ==> ::mixb
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    8.6. CONTROLLING INVOCATION ORDER OF METHODS
+    
+  % oo::class create ClassWithOneArg {
+        constructor {onearg} {puts "Constructing [self class] with $onearg"}
+    }
+    ==> ::ClassWithOneArg
+    
+  % oo::class create ClassWithNoArgs {
+        constructor {} {puts "Constructing [self class]"}
+    }
+    ==> ::ClassWithNoArgs
+    
+  % oo::class create DemoNextto {
+        superclass ClassWithNoArgs ClassWithOneArg
+        constructor {onearg} {
+            nextto ClassWithOneArg $onearg
+            nextto ClassWithNoArgs
+            puts "[self class] successfully constructed"
+        }
+    }
+    ==> ::DemoNextto
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.1. ENUMERATING OBJECTS
+    
+  % info class instances Account
+    ==> ::oo::Obj17 ::smith_account
+    
+  % info class instances SavingsAccount
+    ==> ::savings
+    
+  % info class instances Account ::oo::*
+    ==> ::oo::Obj17
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.2. ENUMERATING CLASSES
+    
+  % info class instances oo::class
+    ==> ::oo::object ::oo::class ::oo::Slot ::Account ::SavingsAccount ::CheckingAccount ::BrokerageAccount ::CashManagementAccount ::EFT ::BillPay ::Logger ::ClassMixin ::ObjectMixin ::SecondBase ::Base ::Derived ::GeneralPurposeMixin ::MixerA ::MixerB ::ClassWithOneArg ::ClassWithNoArgs ::DemoNextto
+    
+  % info class instances oo::class *Mixin
+    ==> ::ClassMixin ::ObjectMixin ::GeneralPurposeMixin
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.3. INTROSPECTING CLASS RELATIONSHIPS
+    
+  % info class superclasses CashManagementAccount
+    ==> ::CheckingAccount ::BrokerageAccount
+    
+  % info class superclasses ::oo::class
+    ==> ::oo::object
+    
+  % info class subclasses Account
+    ==> ::SavingsAccount ::CheckingAccount ::BrokerageAccount
+    
+  % info class mixin CheckingAccount
+    ==> ::EFT ::BillPay
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.4. CHECKING CLASS MEMBERSHIP
+    
+  % info object class savings
+    ==> ::SavingsAccount
+    
+  % info object class savings SavingsAccount
+    ==> 1
+    
+  % info object class savings Account
+    ==> 1
+    
+  % info object class savings CheckingAccount
+    ==> 0
+    
+  % info object mixins savings
+    ==> ::EFT
+    
+  % catch {Base destroy}
+    ==> 0
+    
+  % oo::class create Base {
+        method m {} {
+            puts "Object class: [info object class [self object]]"
+            puts "Method class: [self class]"
+        }
+    }
+    ==> ::Base
+    
+  % oo::class create Derived { superclass Base }
+    ==> ::Derived
+    
+  % Derived create o
+    ==> ::o
+    
+  % o m
+Object class: ::Derived
+Method class: ::Base
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.5. ENUMERATING METHODS
+    
+  % info class methods CheckingAccount
+    ==> cash_check
+    
+  % info class methods CheckingAccount -private
+    ==> cash_check
+    
+  % info class methods CheckingAccount -all
+    ==> balance cash_check deposit destroy transfer_in transfer_out withdraw
+    
+  % info class methods CheckingAccount -all -private
+    ==> <cloned> UpdateBalance balance cash_check deposit destroy eval transfer_in transfer_out unknown variable varname withdraw
+    
+  % info object methods smith_account -private
+    
+  % info object filters smith_account
+    ==> Log
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.6. RETRIEVING METHOD DEFINITIONS
+    
+  % info class definition Account UpdateBalance
+    ==> change {
+            set Balance [+ $Balance $change]
+            return $Balance
+        }
+    
+  % info class constructor Account
+    ==> account_no {
+            puts "Reading account data for $account_no from database"
+            set AccountNumber $account_no
+            set Balance 1000000
+        }
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.8. INTROSPECTING FILTER CONTEXTS
+    
+  % oo::define Logger {
+        method Log args {
+            if {[lindex [self target] 1] eq "withdraw"} {
+                my variable AccountNumber
+                puts "Log([info level]): $AccountNumber [self target]: $args"
+            }
+            return [next {*}$args]
+        }
+    }
+    
+  % smith_account deposit 100
+    ==> 999500
+    
+  % smith_account withdraw 100
+Log(1): 2-71828182 ::Account withdraw: 100
+    ==> 999400
+    
+  % oo::define Logger {
+        method Log args {
+            puts [self filter]
+            return [next {*}$args]
+        }
+    }
+    
+  % smith_account withdraw 1000
+::smith_account object Log
+::smith_account object Log
+    ==> 998400
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.9. OBJECT IDENTITY
+    
+  % oo::define Account {method get_ns {} {return [self namespace]}}
+    
+  % savings get_ns
+    ==> ::oo::Obj23
+    
+  % set acct [Account new 0-0000000]
+Reading account data for 0-0000000 from database
+    ==> ::oo::Obj53
+    
+  % $acct get_ns
+    ==> ::oo::Obj53
+    
+  % info object namespace $acct
+    ==> ::oo::Obj53
+    
+    NOTICE WHEN WE CREATE AN OBJECT USING NEW
+    THE NAMESPACE MATCHES THE OBJECT COMMAND NAME.
+    
+    THIS IS AN ARTIFACT OF THE IMPLEMENTATION AND
+    THIS SHOULD NOT BE RELIED ON.
+    
+    IN FACT, LIKE ANY OTHER TCL COMMAND,
+    THE OBJECT COMMAND CAN BE RENAMED.
+    
+  % rename $acct temp_account
+    
+  % temp_account get_ns
+    ==> ::oo::Obj53
+    
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    9.10. ENUMERATING DATA MEMBERS
+    
+  % info class variables SavingsAccount
+    ==> MaxPerMonthWithdrawals WithdrawalsThisMonth
+    
+  % info object variables smith_account
+    
+  % info object vars smith_account
+    ==> Balance AccountNumber
+    
+    FINISH
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
