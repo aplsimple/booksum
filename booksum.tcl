@@ -56,10 +56,19 @@
 #     ...
 #     }
 #
+# You can use also ** and ## to make a comment BEFORE % blocks.
+# ** makes uppercased comment (title), ## makes a usual comment.
+#
 # All of this can be used for playing with scripts or examples while
 # the bundle variable (just below) being stuffed your code.
 #
-# See e.g.
+# You can also prepare a separate "bundle" file and pass its name
+# to booksum.tcl as if it were the bundle variable's value.
+#
+# For example, try this:
+#   tclsh booksum.tcl samples/OOtcl_book.bundle
+#
+# See also:
 #   - "TclOO Tricks" article available here:
 #       http://wiki.tcl.tk/21595
 #
@@ -260,6 +269,18 @@ proc trim_bundle {} {
 # main program, huh
 
 set SPACE "    "  ;# sets indent = 4 spaces by default
+if {$::argc} {
+  # read from a file (its name - 1st argument of this)
+  # and put its contents into 'bundle' variable to process
+  if {[catch {
+    set ch [open [lindex $::argv 0]]
+    set bundle [read $ch]   ;# take samples from a file
+    close $ch
+  } e]} {
+    puts "\n${SPACE}Error:\n${SPACE}$e\n"
+  }
+}
+
 set indent 0
 trim_bundle
 set com ""
