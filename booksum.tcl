@@ -274,6 +274,7 @@ if {$::argc} {
   # and put its contents into 'bundle' variable to process
   if {[catch {
     set ch [open [lindex $::argv 0]]
+    chan configure $ch -encoding utf-8
     set bundle [read $ch]   ;# take samples from a file
     close $ch
   } e]} {
